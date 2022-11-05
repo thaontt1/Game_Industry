@@ -1,0 +1,93 @@
+--ti le user theo quoc gia
+    SELECT
+      country,
+      COUNT(DISTINCT user_pseudo_id) AS user
+    FROM
+      `ikame-364104.ikame.Coinflow`
+    GROUP BY
+      country
+    ORDER BY
+      user desc
+-- user_type theo cac quoc gia
+    SELECT
+      DISTINCT x.user_pseudo_id,
+      country,
+      y.total,
+      CASE
+        WHEN y.total >= 100 THEN 'Whales'
+        WHEN y.total >= 10 THEN 'Dolphins'
+        WHEN y.total > 0 THEN 'Minnows'
+      ELSE
+      'Non-buyer'
+    END
+      AS User_type
+    FROM
+      `ikame-364104.ikame.Coinflow` x
+    LEFT JOIN (
+      SELECT
+        user_pseudo_id,
+        SUM(value_usd) AS total
+      FROM
+        `ikame-364104.ikame.Orders`
+      GROUP BY
+        user_pseudo_id) AS y
+    ON
+      x.user_pseudo_id = y.user_pseudo_id
+    ORDER BY
+      y.total DESC
+-- User & revenue by user_age
+    SELECT
+      coin.*,
+      DATE_DIFF(coin.event_date,coin.install_date,DAY)+1 AS user_age,
+      orders.event_timestamp,
+      orders.value_usd,
+      orders.product_id
+    FROM
+      `ikame-364104.ikame.Coinflow` coin
+    LEFT JOIN
+      `ikame-364104.ikame.Orders` orders
+    ON
+      coin.user_pseudo_id = orders.user_pseudo_id
+  --phan tich hanh vi chi tieu cash cua user sau khi mua goi ban dau tien
+      with spending as (SELECT
+        cash.*,
+        rank() over(partition by cash.user_pseudo_id order by cash.event_timestamp) as rank1
+      FROM
+        `ikame-364104.ikame.Cashflow` cash
+      INNER JOIN (
+        SELECT
+          user_pseudo_id AS user,
+          MIN(event_timestamp) AS first_day_purchase
+        FROM
+          `ikame-364104.ikame.Orders`
+        GROUP BY
+          user_pseudo_id) AS table1
+      ON
+        cash.user_pseudo_id = table1.user
+      WHERE
+        cash.event_timestamp > first_day_purchase and cash.params_type = '_out'
+      ORDER BY
+        cash.user_pseudo_id, cash.event_timestamp)
+    select *
+    from spending
+    where rank1 = 1
+-- spending before FIRST buying
+    SELECT
+      cash.*
+    FROM
+      `ikame-364104.ikame.Cashflow` cash
+    INNER JOIN (
+      SELECT
+        user_pseudo_id,
+        MIN(event_timestamp) as day_of_first_purchase
+      FROM
+        `ikame-364104.ikame.Orders`
+      GROUP BY
+        user_pseudo_id) orders
+    ON
+      cash.user_pseudo_id = orders.user_pseudo_id
+    WHERE
+      cash.event_timestamp < orders.day_of_first_purchase and cash.params_type = '_out'
+    ORDER BY
+      cash.user_pseudo_id,
+      cash.event_timestamp
