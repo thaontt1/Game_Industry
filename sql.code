@@ -48,7 +48,7 @@
       `ikame-364104.ikame.Orders` orders
     ON
       coin.user_pseudo_id = orders.user_pseudo_id
-  --phan tich hanh vi chi tieu cash cua user sau khi mua goi ban dau tien
+--phan tich hanh vi chi tieu cash cua user sau khi mua goi ban dau tien
       with spending as (SELECT
         cash.*,
         rank() over(partition by cash.user_pseudo_id order by cash.event_timestamp) as rank1
